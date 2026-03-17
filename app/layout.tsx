@@ -9,12 +9,23 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "PaoReader",
   description: "個人利用向けのモバイルファースト RSS リーダー",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    title: "PaoReader",
+    statusBarStyle: "default",
+  },
+  icons: {
+    icon: "/icons/icon.svg",
+    apple: "/icons/icon.svg",
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  themeColor: "#0284c7",
 };
 
 type RootLayoutProps = {

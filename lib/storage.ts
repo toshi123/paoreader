@@ -1,4 +1,4 @@
-import type { Article, Feed } from "@/lib/types";
+import type { Article, ArticleListPreferences, Feed } from "@/lib/types";
 
 export interface ReaderStorage {
   getFeeds(): Feed[];
@@ -16,6 +16,8 @@ export interface ReaderStorage {
   removeSavedArticle(article: Article): Article[];
   getReadArticleIds(): string[];
   markArticleAsRead(articleId: string): string[];
+  getArticleListPreferences(): ArticleListPreferences;
+  saveArticleListPreferences(preferences: ArticleListPreferences): ArticleListPreferences;
 }
 
 export const readerStorageKeys = {
@@ -23,4 +25,5 @@ export const readerStorageKeys = {
   articles: "paoreader:articles",
   savedArticles: "paoreader:savedArticles",
   readArticleIds: "paoreader:readArticleIds",
+  articleListPreferences: "paoreader:articleListPreferences",
 } as const;

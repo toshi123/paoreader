@@ -5,7 +5,13 @@ import {
   mergeArticleCollections,
   mergeArticleData,
 } from "@/lib/article-utils";
-import type { Article, Feed } from "@/lib/types";
+import type { Article, ArticleListPreferences, Feed } from "@/lib/types";
+
+const defaultArticleListPreferences: ArticleListPreferences = {
+  sort: "newest",
+  readFilter: "all",
+  savedOnly: false,
+};
 
 function getStorage(): Storage | null {
   if (typeof window === "undefined") {
@@ -167,6 +173,17 @@ export function createLocalStorageReaderStorage(): ReaderStorage {
       writeJson(readerStorageKeys.readArticleIds, nextIds);
 
       return nextIds;
+    },
+    getArticleListPreferences() {
+      return readJson<ArticleListPreferences>(
+        readerStorageKeys.articleListPreferences,
+        defaultArticleListPreferences,
+      );
+    },
+    saveArticleListPreferences(preferences) {
+      writeJson(readerStorageKeys.articleListPreferences, preferences);
+
+      return preferences;
     },
   };
 }

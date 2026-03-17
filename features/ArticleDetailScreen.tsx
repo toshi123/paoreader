@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { EmptyState } from "@/components/EmptyState";
+import { ExternalArticleLink } from "@/components/ExternalArticleLink";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { SaveButton } from "@/components/SaveButton";
 import { useReaderStore } from "@/hooks/useReaderStore";
@@ -91,16 +91,9 @@ export function ArticleDetailScreen({ articleId }: ArticleDetailScreenProps) {
         <p className="text-sm leading-7 text-slate-600">{article.summary}</p>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <SaveButton isSaved={isSaved} onClick={() => toggleSavedArticle(article)} />
-        <Link
-          href={article.link}
-          target="_blank"
-          rel="noreferrer"
-          className="text-sm font-medium text-sky-700 underline underline-offset-4"
-        >
-          元記事を開く
-        </Link>
+        <ExternalArticleLink href={article.link} variant="primary" />
       </div>
 
       <div className="space-y-4 border-t border-slate-200 pt-5">

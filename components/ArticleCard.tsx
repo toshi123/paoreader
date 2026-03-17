@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ExternalArticleLink } from "@/components/ExternalArticleLink";
 import { SaveButton } from "@/components/SaveButton";
 import { formatDateLabel } from "@/lib/article-utils";
 import type { Article } from "@/lib/types";
@@ -44,6 +45,15 @@ export function ArticleCard({
         <SaveButton isSaved={isSaved} onClick={() => onToggleSave(article)} />
       </div>
       <p className="text-sm leading-6 text-slate-600">{article.summary}</p>
+      <div className="mt-4 flex items-center gap-2">
+        <Link
+          href={`/article/${article.id}`}
+          className="inline-flex min-h-10 items-center justify-center rounded-xl bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+        >
+          詳細を見る
+        </Link>
+        <ExternalArticleLink href={article.link} label="元記事" />
+      </div>
     </article>
   );
 }

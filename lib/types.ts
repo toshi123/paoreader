@@ -44,3 +44,9 @@ export type FeedFetchResult = {
 export type ApiErrorResponse = {
   error: string;
 };
+
+export type ArticleListPreferences = {
+  sort: ArticleSort;
+  readFilter: ArticleReadFilter;
+  savedOnly: boolean;
+};
