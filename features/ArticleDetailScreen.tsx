@@ -84,9 +84,10 @@ export function ArticleDetailScreen({ articleId }: ArticleDetailScreenProps) {
 
   const isSaved = isArticleSaved(article);
   const articleBody = content?.content.trim() ? content.content : article.summary;
+  const resolvedThumbnailUrl = article.thumbnailUrl?.trim();
   const thumbnailSrc = shouldUseFallbackThumbnail(article.link)
     ? FALLBACK_THUMBNAIL_URL
-    : article.thumbnailUrl ?? FALLBACK_THUMBNAIL_URL;
+    : resolvedThumbnailUrl || FALLBACK_THUMBNAIL_URL;
 
   return (
     <article className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -105,7 +106,6 @@ export function ArticleDetailScreen({ articleId }: ArticleDetailScreenProps) {
           </Link>
         </div>
         <h2 className="text-2xl font-semibold leading-9 text-slate-900">{article.title}</h2>
-        <p className="text-sm leading-7 text-slate-600">{article.summary}</p>
         <Link
           href={article.link}
           target="_blank"

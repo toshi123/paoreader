@@ -33,6 +33,7 @@ lib/
 - 記事カードと詳細から元記事を外部リンクで開く
 - `/api/fetch-feed` で RSS / Atom を取得して解析
 - `/api/hatena-count` ではてなブックマーク件数を取得
+- RSS / Atom の `media:thumbnail` などから記事サムネイル画像を抽出
 - PWA の最低限の土台として `manifest.json` と仮アイコンを配置
 - LocalStorage に以下を保存
   - 購読フィード一覧
@@ -102,6 +103,8 @@ lib/
 - `http` / `https` 以外の URL は拒否
 - フィード取得失敗時は API / UI の両方でエラー表示
 - RSS / Atom 解析失敗時も画面全体は落とさず、フォーム上でメッセージ表示
+- サムネイル URL は `media:thumbnail` -> `media:content` -> `enclosure(image/*)` -> `content:encoded` 内の最初の `img` -> `description` 内の最初の `img` の順で抽出
+- 相対サムネイル URL はフィード URL またはサイト URL を基準に絶対 URL 化し、不正な URL は無視
 - 重複 URL の登録は防止
 - フィード再取得失敗時は対象フィードの行にだけエラー表示
 

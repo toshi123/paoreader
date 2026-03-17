@@ -23,9 +23,10 @@ export function ArticleCard({
   onToggleSave,
   onOpenExternalArticle,
 }: ArticleCardProps) {
+  const resolvedThumbnailUrl = article.thumbnailUrl?.trim();
   const thumbnailSrc = shouldUseFallbackThumbnail(article.link)
     ? FALLBACK_THUMBNAIL_URL
-    : article.thumbnailUrl ?? FALLBACK_THUMBNAIL_URL;
+    : resolvedThumbnailUrl || FALLBACK_THUMBNAIL_URL;
 
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -57,7 +58,6 @@ export function ArticleCard({
             </h2>
           </Link>
         </div>
-        <SaveButton isSaved={isSaved} onClick={() => onToggleSave(article)} />
       </div>
       <Link
         href={article.link}
@@ -93,6 +93,7 @@ export function ArticleCard({
           label="元記事"
           onClick={() => onOpenExternalArticle(article.id)}
         />
+        <SaveButton isSaved={isSaved} onClick={() => onToggleSave(article)} />
       </div>
     </article>
   );

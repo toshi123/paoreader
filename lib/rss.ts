@@ -228,7 +228,12 @@ function parseRssItem(item: XmlRecord, feed: Feed): Article | null {
     publishedAt: normalizeDate(
       readText(item.pubDate) ?? readText(item.isoDate) ?? readText(item["dc:date"]),
     ),
-    thumbnailUrl: getMediaThumbnail(item),
+    thumbnailUrl: getArticleThumbnailUrl({
+      item,
+      feed,
+      contentHtml: readText(item["content:encoded"]) ?? readText(item.content),
+      descriptionHtml: readText(item.description),
+    }),
     hatenaBookmarkCount: null,
   };
 }
@@ -258,7 +263,13 @@ function parseRdfItem(item: XmlRecord, feed: Feed): Article | null {
     summary: createSummary(summarySource),
     link: normalizeUrl(link),
     publishedAt,
-    thumbnailUrl: readText(item["hatena:imageurl"]),
+    thumbnailUrl: getArticleThumbnailUrl({
+      item,
+      feed,
+      contentHtml: readText(item["content:encoded"]) ?? readText(item.content),
+      descriptionHtml: readText(item.description),
+      fallbackUrls: [readText(item["hatena:imageurl"])],
+    }),
     hatenaBookmarkCount: readNumber(item["hatena:bookmarkcount"]),
     hatenaCountFetchedAt: publishedAt,
   };
@@ -284,6 +295,12 @@ function parseAtomEntry(entry: XmlRecord, feed: Feed): Article | null {
     publishedAt: normalizeDate(
       readText(entry.published) ?? readText(entry.updated) ?? readText(entry.created),
     ),
+    thumbnailUrl: getArticleThumbnailUrl({
+      item: entry,
+      feed,
+      contentHtml: readText(entry["content:encoded"]) ?? readText(entry.content),
+      descriptionHtml: readText(entry.description) ?? readText(entry.summary),
+    }),
     hatenaBookmarkCount: null,
   };
 }
@@ -479,20 +496,194 @@ function normalizeDate(value?: string): string {
   return new Date(timestamp).toISOString();
 }
 
-function getMediaThumbnail(item: XmlRecord): string | undefined {
-  const thumbnail = item["media:thumbnail"];
+function getArticleThumbnailUrl(options: {
+  item: XmlRecord;
+  feed: Feed;
+  contentHtml?: string;
+  descriptionHtml?: string;
+  fallbackUrls?: Array<string | undefined>;
+}): string | undefined {
+  const { item, feed, contentHtml, descriptionHtml, fallbackUrls = [] } = options;
+  const candidates = [
+    getMediaThumbnailUrl(item, feed),
+    getMediaContentUrl(item, feed),
+    getImageEnclosureUrl(item, feed),
+    getFirstImageUrlFromHtml(contentHtml, feed),
+    getFirstImageUrlFromHtml(descriptionHtml, feed),
+    ...fallbackUrls.map((url) => resolveThumbnailUrl(url, feed)),
+  ];
 
-  if (isRecord(thumbnail) && typeof thumbnail.url === "string") {
-    return thumbnail.url;
+  return candidates.find((candidate): candidate is string => Boolean(candidate));
+}
+
+function getMediaThumbnailUrl(item: XmlRecord, feed: Feed): string | undefined {
+  return getFirstResolvedMediaUrl(item["media:thumbnail"], feed, {
+    allowNonImageWhenTypeMissing: true,
+  });
+}
+
+function getMediaContentUrl(item: XmlRecord, feed: Feed): string | undefined {
+  return getFirstResolvedMediaUrl(item["media:content"], feed, {
+    allowNonImageWhenTypeMissing: true,
+  });
+}
+
+function getImageEnclosureUrl(item: XmlRecord, feed: Feed): string | undefined {
+  const rssEnclosureUrl = getFirstResolvedMediaUrl(item.enclosure, feed, {
+    requireImageType: true,
+  });
+
+  if (rssEnclosureUrl) {
+    return rssEnclosureUrl;
   }
 
-  if (Array.isArray(thumbnail)) {
-    const match = thumbnail.find(
-      (entry) => isRecord(entry) && typeof entry.url === "string",
-    );
+  for (const linkCandidate of toArray(item.link)) {
+    if (!isRecord(linkCandidate) || linkCandidate.rel !== "enclosure") {
+      continue;
+    }
 
-    if (isRecord(match) && typeof match.url === "string") {
-      return match.url;
+    if (typeof linkCandidate.type !== "string" || !linkCandidate.type.startsWith("image/")) {
+      continue;
+    }
+
+    const enclosureUrl = readUrlValue(linkCandidate);
+    const resolvedUrl = resolveThumbnailUrl(enclosureUrl, feed);
+
+    if (resolvedUrl) {
+      return resolvedUrl;
+    }
+  }
+
+  return undefined;
+}
+
+function getFirstResolvedMediaUrl(
+  value: unknown,
+  feed: Feed,
+  options: {
+    allowNonImageWhenTypeMissing?: boolean;
+    requireImageType?: boolean;
+  } = {},
+): string | undefined {
+  for (const candidate of toArray(value)) {
+    if (typeof candidate === "string") {
+      const resolvedUrl = resolveThumbnailUrl(candidate, feed);
+
+      if (resolvedUrl && !options.requireImageType) {
+        return resolvedUrl;
+      }
+
+      continue;
+    }
+
+    if (!isRecord(candidate)) {
+      continue;
+    }
+
+    if (!isImageMediaCandidate(candidate, options)) {
+      continue;
+    }
+
+    const resolvedUrl = resolveThumbnailUrl(readUrlValue(candidate), feed);
+
+    if (resolvedUrl) {
+      return resolvedUrl;
+    }
+  }
+
+  return undefined;
+}
+
+function isImageMediaCandidate(
+  candidate: XmlRecord,
+  options: {
+    allowNonImageWhenTypeMissing?: boolean;
+    requireImageType?: boolean;
+  },
+): boolean {
+  if (typeof candidate.type === "string") {
+    return candidate.type.startsWith("image/");
+  }
+
+  if (typeof candidate.medium === "string") {
+    return candidate.medium === "image";
+  }
+
+  if (options.requireImageType) {
+    return false;
+  }
+
+  return options.allowNonImageWhenTypeMissing ?? false;
+}
+
+function readUrlValue(value: XmlRecord): string | undefined {
+  if (typeof value.url === "string") {
+    return value.url;
+  }
+
+  if (typeof value.href === "string") {
+    return value.href;
+  }
+
+  return undefined;
+}
+
+function getFirstImageUrlFromHtml(html: string | undefined, feed: Feed): string | undefined {
+  if (!html) {
+    return undefined;
+  }
+
+  const normalizedHtml = html.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1");
+  const imageMatch = normalizedHtml.match(
+    /<img\b[^>]*\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/i,
+  );
+  const rawUrl = imageMatch?.[1] ?? imageMatch?.[2] ?? imageMatch?.[3];
+
+  if (!rawUrl) {
+    return undefined;
+  }
+
+  return resolveThumbnailUrl(decodeHtmlAttribute(rawUrl), feed);
+}
+
+function decodeHtmlAttribute(value: string): string {
+  return value
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&nbsp;/g, " ");
+}
+
+function resolveThumbnailUrl(value: string | undefined, feed: Feed): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const trimmedValue = value.trim();
+
+  if (trimmedValue.length === 0) {
+    return undefined;
+  }
+
+  const baseUrls = [feed.siteUrl, feed.url].filter(
+    (candidate): candidate is string => typeof candidate === "string",
+  );
+
+  for (const baseUrl of [undefined, ...baseUrls]) {
+    try {
+      const resolvedUrl = baseUrl
+        ? new URL(trimmedValue, baseUrl).toString()
+        : new URL(trimmedValue).toString();
+
+      if (!isValidUrl(resolvedUrl)) {
+        continue;
+      }
+
+      return normalizeUrl(resolvedUrl);
+    } catch {
+      continue;
     }
   }
 
