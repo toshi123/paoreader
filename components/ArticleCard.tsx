@@ -48,7 +48,7 @@ export function ArticleCard({
       <div className="mt-4 flex items-center gap-2">
         <Link
           href={`/article/${article.id}`}
-          className="inline-flex min-h-10 items-center justify-center rounded-xl bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+          className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
         >
           詳細を見る
         </Link>
