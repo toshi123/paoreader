@@ -23,9 +23,10 @@ lib/
 ## できること
 
 - `/` で登録済みフィードの記事一覧を表示
-- `/feeds` で RSS / Atom フィードを追加・削除
+- `/feeds` で RSS / Atom フィードを追加・削除・再取得
 - `/saved` で保存記事を一覧表示
 - `/article/[id]` で記事詳細を表示
+- 記事を「あとで読む」に保存 / 解除
 - `/api/fetch-feed` で RSS / Atom を取得して解析
 - LocalStorage に以下を保存
   - 購読フィード一覧
@@ -41,12 +42,21 @@ lib/
 4. フィード情報と記事一覧を LocalStorage に保存
 5. `/` で登録済みフィードの記事を新着順で表示
 
+## あとで読むと再取得
+
+- 記事一覧と記事詳細から保存 / 解除が可能
+- 保存済み記事は LocalStorage に保持され、再読み込み後も残る
+- 購読フィードを削除しても、保存済み記事は `/saved` から閲覧可能
+- `/feeds` ではフィードごとに再取得でき、`lastFetchedAt` を表示
+- 再取得時は URL 正規化ベースで記事重複を抑制
+
 ## エラーハンドリング
 
 - `http` / `https` 以外の URL は拒否
 - フィード取得失敗時は API / UI の両方でエラー表示
 - RSS / Atom 解析失敗時も画面全体は落とさず、フォーム上でメッセージ表示
 - 重複 URL の登録は防止
+- フィード再取得失敗時は対象フィードの行にだけエラー表示
 
 ## 設計方針
 
@@ -54,6 +64,7 @@ lib/
 - 保存層は `ReaderStorage` インターフェースで抽象化
 - RSS 取得、XML 解析、はてブ件数取得、本文抽出、URL 処理、保存処理、型定義を `lib` へ分離
 - `feeds` / `articles` / `savedArticles` / `readArticleIds` を LocalStorage で管理
+- 保存判定と記事重複判定は URL 正規化ベースで処理
 - API Route は後から Cloudflare Functions / D1 / KV へ置き換えやすい責務に整理
 
 ## セットアップ

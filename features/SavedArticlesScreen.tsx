@@ -1,19 +1,26 @@
 "use client";
 
+import { useMemo } from "react";
+
 import { ArticleCard } from "@/components/ArticleCard";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { useReaderStore } from "@/hooks/useReaderStore";
+import { sortArticles } from "@/lib/article-utils";
 
 export function SavedArticlesScreen() {
-  const { savedArticles, readArticleIds, toggleSavedArticle, isHydrated } =
+  const { allArticles, isArticleSaved, readArticleIds, toggleSavedArticle, isHydrated } =
     useReaderStore();
+  const sortedSavedArticles = useMemo(
+    () => sortArticles(allArticles.filter((article) => isArticleSaved(article)), "newest"),
+    [allArticles, isArticleSaved],
+  );
 
   if (!isHydrated) {
     return <LoadingSpinner />;
   }
 
-  if (savedArticles.length === 0) {
+  if (sortedSavedArticles.length === 0) {
     return (
       <EmptyState
         title="あとで読むは空です"
@@ -26,7 +33,7 @@ export function SavedArticlesScreen() {
 
   return (
     <section className="space-y-3">
-      {savedArticles.map((article) => (
+      {sortedSavedArticles.map((article) => (
         <ArticleCard
           key={article.id}
           article={article}

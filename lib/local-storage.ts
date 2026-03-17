@@ -1,4 +1,5 @@
 import { readerStorageKeys, type ReaderStorage } from "@/lib/storage";
+import { dedupeArticlesByLink, isSameArticle } from "@/lib/article-utils";
 import type { Article, Feed } from "@/lib/types";
 
 function getStorage(): Storage | null {
@@ -55,6 +56,15 @@ export function createLocalStorageReaderStorage(): ReaderStorage {
 
       return nextFeeds;
     },
+    updateFeed(feed) {
+      const nextFeeds = this.getFeeds().map((currentFeed) =>
+        currentFeed.id === feed.id ? feed : currentFeed,
+      );
+
+      this.saveFeeds(nextFeeds);
+
+      return nextFeeds;
+    },
     removeFeed(feedId) {
       const nextFeeds = this.getFeeds().filter((feed) => feed.id !== feedId);
 
@@ -72,13 +82,7 @@ export function createLocalStorageReaderStorage(): ReaderStorage {
       const currentArticles = this.getArticles().filter(
         (article) => article.feedId !== feedId,
       );
-      const articleMap = new Map<string, Article>();
-
-      for (const article of [...articles, ...currentArticles]) {
-        articleMap.set(article.id, article);
-      }
-
-      const nextArticles = Array.from(articleMap.values());
+      const nextArticles = dedupeArticlesByLink([...articles, ...currentArticles]);
 
       this.saveArticles(nextArticles);
 
@@ -99,7 +103,7 @@ export function createLocalStorageReaderStorage(): ReaderStorage {
     saveArticle(article) {
       const currentArticles = this.getSavedArticles();
       const alreadySaved = currentArticles.some(
-        (savedArticle) => savedArticle.id === article.id,
+        (savedArticle) => isSameArticle(savedArticle, article),
       );
       const nextArticles = alreadySaved
         ? currentArticles
@@ -109,9 +113,9 @@ export function createLocalStorageReaderStorage(): ReaderStorage {
 
       return nextArticles;
     },
-    removeSavedArticle(articleId) {
+    removeSavedArticle(article) {
       const nextArticles = this.getSavedArticles().filter(
-        (article) => article.id !== articleId,
+        (savedArticle) => !isSameArticle(savedArticle, article),
       );
 
       writeJson(readerStorageKeys.savedArticles, nextArticles);

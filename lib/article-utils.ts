@@ -1,3 +1,4 @@
+import { normalizeUrl } from "@/lib/url";
 import type { Article, ArticleSort } from "@/lib/types";
 
 export function sortArticles(articles: Article[], sort: ArticleSort): Article[] {
@@ -23,4 +24,29 @@ export function formatDateLabel(value: string): string {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+export function getArticleIdentity(article: Pick<Article, "id" | "link">): string {
+  try {
+    return normalizeUrl(article.link);
+  } catch {
+    return article.id;
+  }
+}
+
+export function isSameArticle(
+  left: Pick<Article, "id" | "link">,
+  right: Pick<Article, "id" | "link">,
+): boolean {
+  return getArticleIdentity(left) === getArticleIdentity(right);
+}
+
+export function dedupeArticlesByLink(articles: Article[]): Article[] {
+  const articleMap = new Map<string, Article>();
+
+  for (const article of articles) {
+    articleMap.set(getArticleIdentity(article), article);
+  }
+
+  return Array.from(articleMap.values());
 }

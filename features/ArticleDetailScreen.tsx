@@ -18,7 +18,7 @@ type ArticleDetailScreenProps = {
 export function ArticleDetailScreen({ articleId }: ArticleDetailScreenProps) {
   const {
     allArticles,
-    savedArticles,
+    isArticleSaved,
     toggleSavedArticle,
     markArticleAsRead,
     isHydrated,
@@ -78,7 +78,7 @@ export function ArticleDetailScreen({ articleId }: ArticleDetailScreenProps) {
     );
   }
 
-  const isSaved = savedArticles.some((savedArticle) => savedArticle.id === article.id);
+  const isSaved = isArticleSaved(article);
 
   return (
     <article className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

@@ -4,6 +4,7 @@ export interface ReaderStorage {
   getFeeds(): Feed[];
   saveFeeds(feeds: Feed[]): void;
   addFeed(feed: Feed): Feed[];
+  updateFeed(feed: Feed): Feed[];
   removeFeed(feedId: string): Feed[];
   getArticles(): Article[];
   saveArticles(articles: Article[]): void;
@@ -11,7 +12,7 @@ export interface ReaderStorage {
   removeArticlesByFeedId(feedId: string): Article[];
   getSavedArticles(): Article[];
   saveArticle(article: Article): Article[];
-  removeSavedArticle(articleId: string): Article[];
+  removeSavedArticle(article: Article): Article[];
   getReadArticleIds(): string[];
   markArticleAsRead(articleId: string): string[];
 }

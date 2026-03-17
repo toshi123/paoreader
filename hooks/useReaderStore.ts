@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { fetchFeedFromApi } from "@/lib/feed-api";
+import { dedupeArticlesByLink, isSameArticle } from "@/lib/article-utils";
 import { createLocalStorageReaderStorage } from "@/lib/local-storage";
 import { isValidUrl, normalizeUrl } from "@/lib/url";
 import type { Article, Feed } from "@/lib/types";
@@ -10,13 +11,7 @@ import type { Article, Feed } from "@/lib/types";
 const legacyFeedIds = new Set(["feed-dev", "feed-product", "feed-mobile"]);
 
 function mergeArticles(baseArticles: Article[], savedArticles: Article[]): Article[] {
-  const articleMap = new Map<string, Article>();
-
-  for (const article of [...savedArticles, ...baseArticles]) {
-    articleMap.set(article.id, article);
-  }
-
-  return Array.from(articleMap.values());
+  return dedupeArticlesByLink([...savedArticles, ...baseArticles]);
 }
 
 export function useReaderStore() {
@@ -60,6 +55,13 @@ export function useReaderStore() {
     return mergeArticles(articles, savedArticles);
   }, [articles, savedArticles]);
 
+  const isArticleSaved = useCallback(
+    (article: Article): boolean => {
+      return savedArticles.some((savedArticle) => isSameArticle(savedArticle, article));
+    },
+    [savedArticles],
+  );
+
   const addFeed = useCallback(
     async (url: string): Promise<{ ok: true } | { ok: false; message: string }> => {
       if (!isValidUrl(url)) {
@@ -97,6 +99,51 @@ export function useReaderStore() {
     [feeds, storage],
   );
 
+  const refreshFeed = useCallback(
+    async (feedId: string): Promise<{ ok: true } | { ok: false; message: string }> => {
+      const currentFeed = feeds.find((feed) => feed.id === feedId);
+
+      if (!currentFeed) {
+        return { ok: false, message: "対象のフィードが見つかりません。" };
+      }
+
+      try {
+        const { feed, articles: fetchedArticles } = await fetchFeedFromApi(currentFeed.url);
+        const nextFeed: Feed = {
+          ...currentFeed,
+          ...feed,
+          id: currentFeed.id,
+          createdAt: currentFeed.createdAt,
+          lastFetchedAt: feed.lastFetchedAt ?? new Date().toISOString(),
+        };
+        const nextFeedArticles = fetchedArticles.map((article) => ({
+          ...article,
+          feedId: currentFeed.id,
+          feedTitle: nextFeed.title,
+        }));
+        const nextFeeds = storage.updateFeed(nextFeed);
+        const nextArticles = storage.replaceArticlesByFeed(
+          currentFeed.id,
+          nextFeedArticles,
+        );
+
+        setFeeds(nextFeeds);
+        setStoredArticles(nextArticles);
+
+        return { ok: true };
+      } catch (error) {
+        return {
+          ok: false,
+          message:
+            error instanceof Error
+              ? error.message
+              : "フィードの更新に失敗しました。",
+        };
+      }
+    },
+    [feeds, storage],
+  );
+
   const removeFeed = useCallback(
     (feedId: string): void => {
       const nextFeeds = storage.removeFeed(feedId);
@@ -110,11 +157,11 @@ export function useReaderStore() {
 
   const toggleSavedArticle = useCallback(
     (article: Article): void => {
-      const isSaved = savedArticles.some(
-        (savedArticle) => savedArticle.id === article.id,
+      const isSaved = savedArticles.some((savedArticle) =>
+        isSameArticle(savedArticle, article),
       );
       const nextArticles = isSaved
-        ? storage.removeSavedArticle(article.id)
+        ? storage.removeSavedArticle(article)
         : storage.saveArticle(article);
 
       setSavedArticles(nextArticles);
@@ -138,7 +185,9 @@ export function useReaderStore() {
     savedArticles,
     readArticleIds,
     isHydrated,
+    isArticleSaved,
     addFeed,
+    refreshFeed,
     removeFeed,
     toggleSavedArticle,
     markArticleAsRead,

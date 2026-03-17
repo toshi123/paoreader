@@ -11,7 +11,7 @@ import { sortArticles } from "@/lib/article-utils";
 import type { ArticleSort } from "@/lib/types";
 
 export function ArticleListScreen() {
-  const { articles, readArticleIds, savedArticles, toggleSavedArticle, isHydrated } =
+  const { articles, readArticleIds, isArticleSaved, toggleSavedArticle, isHydrated } =
     useReaderStore();
   const [sort, setSort] = useState<ArticleSort>("newest");
 
@@ -43,7 +43,7 @@ export function ArticleListScreen() {
           <ArticleCard
             key={article.id}
             article={article}
-            isSaved={savedArticles.some((savedArticle) => savedArticle.id === article.id)}
+            isSaved={isArticleSaved(article)}
             isRead={readArticleIds.includes(article.id)}
             onToggleSave={toggleSavedArticle}
           />
