@@ -9,7 +9,7 @@ export async function GET(request: Request) {
 
   if (!isValidUrl(url)) {
     return NextResponse.json(
-      { error: "有効な http / https のフィード URL を指定してください。" },
+      { error: "有効な http / https のサイト URL またはフィード URL を指定してください。" },
       { status: 400 },
     );
   }

@@ -96,7 +96,9 @@ export function useReaderStore() {
 
       const normalizedUrl = normalizeUrl(url);
       const alreadyExists = feeds.some(
-        (feed) => normalizeUrl(feed.url) === normalizedUrl,
+        (feed) =>
+          normalizeUrl(feed.url) === normalizedUrl ||
+          (feed.siteUrl ? normalizeUrl(feed.siteUrl) === normalizedUrl : false),
       );
 
       if (alreadyExists) {
@@ -105,6 +107,21 @@ export function useReaderStore() {
 
       try {
         const { feed, articles: fetchedArticles } = await fetchFeedFromApi(normalizedUrl);
+        const resolvedDuplicate = feeds.some(
+          (currentFeed) =>
+            normalizeUrl(currentFeed.url) === normalizeUrl(feed.url) ||
+            (currentFeed.siteUrl && feed.siteUrl
+              ? normalizeUrl(currentFeed.siteUrl) === normalizeUrl(feed.siteUrl)
+              : false),
+        );
+
+        if (resolvedDuplicate) {
+          return {
+            ok: false,
+            message: "そのサイトのフィードはすでに登録されています。",
+          };
+        }
+
         const nextFeeds = storage.addFeed(feed);
         const nextArticles = storage.replaceArticlesByFeed(feed.id, fetchedArticles);
 

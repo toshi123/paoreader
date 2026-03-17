@@ -38,18 +38,21 @@ export function FeedForm({ onSubmit }: FeedFormProps) {
     >
       <div className="space-y-1">
         <label htmlFor="feed-url" className="text-sm font-medium text-slate-800">
-          RSS / Atom URL
+          サイト URL または RSS / Atom URL
         </label>
         <input
           id="feed-url"
           type="url"
           value={url}
           onChange={(event) => setUrl(event.target.value)}
-          placeholder="https://example.com/feed.xml"
+          placeholder="https://example.com"
           disabled={isSubmitting}
           className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
         />
       </div>
+      <p className="text-xs leading-5 text-slate-500">
+        ホームページ URL を入れると、HTML のメタデータから RSS / Atom を自動検出します。
+      </p>
       <button
         type="submit"
         disabled={isSubmitting}

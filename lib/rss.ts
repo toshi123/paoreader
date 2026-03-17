@@ -30,57 +30,41 @@ export async function fetchFeed(url: string): Promise<FeedFetchResult> {
   }
 
   const normalizedUrl = normalizeUrl(url);
+  const document = await fetchDocument(normalizedUrl);
+  const directFeedResult = parseFeedDocument(document.body, normalizedUrl, normalizedUrl);
 
-  let response: Response;
-
-  try {
-    response = await fetch(normalizedUrl, {
-      headers: {
-        Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml",
-      },
-      cache: "no-store",
-    });
-  } catch {
-    throw new FeedFetchError("フィードの取得に失敗しました。", 502);
+  if (directFeedResult) {
+    return directFeedResult;
   }
 
-  if (!response.ok) {
+  const discoveredFeedUrl = discoverFeedUrlFromHtml(document.body, normalizedUrl);
+
+  if (!discoveredFeedUrl) {
     throw new FeedFetchError(
-      `フィードの取得に失敗しました。ステータス: ${response.status}`,
-      502,
+      "ページから RSS / Atom フィードを自動検出できませんでした。",
+      422,
     );
   }
 
-  const xml = await response.text();
+  const feedDocument = await fetchDocument(discoveredFeedUrl);
+  const discoveredFeedResult = parseFeedDocument(
+    feedDocument.body,
+    discoveredFeedUrl,
+    normalizedUrl,
+  );
 
-  if (xml.trim().length === 0) {
-    throw new FeedFetchError("フィードの内容が空です。", 422);
+  if (discoveredFeedResult) {
+    return discoveredFeedResult;
   }
 
-  let parsed: unknown;
-
-  try {
-    parsed = xmlParser.parse(xml);
-  } catch {
-    throw new FeedFetchError("RSS / Atom の解析に失敗しました。", 422);
-  }
-
-  if (!isRecord(parsed)) {
-    throw new FeedFetchError("RSS / Atom の解析結果が不正です。", 422);
-  }
-
-  if (isRecord(parsed.rss) && isRecord(parsed.rss.channel)) {
-    return parseRssFeed(parsed.rss.channel, normalizedUrl);
-  }
-
-  if (isRecord(parsed.feed)) {
-    return parseAtomFeed(parsed.feed, normalizedUrl);
-  }
-
-  throw new FeedFetchError("RSS / Atom フィードではありません。", 422);
+  throw new FeedFetchError("RSS / Atom の解析に失敗しました。", 422);
 }
 
-function parseRssFeed(channel: XmlRecord, feedUrl: string): FeedFetchResult {
+function parseRssFeed(
+  channel: XmlRecord,
+  feedUrl: string,
+  siteUrlHint?: string,
+): FeedFetchResult {
   const feedId = createStableId("feed", feedUrl);
   const now = new Date().toISOString();
   const rawItems = toArray(channel.item).filter(isRecord);
@@ -88,7 +72,11 @@ function parseRssFeed(channel: XmlRecord, feedUrl: string): FeedFetchResult {
     id: feedId,
     title: readText(channel.title) ?? getHostnameLabel(feedUrl),
     url: feedUrl,
-    siteUrl: getFirstValidUrl([readText(channel.link), new URL(feedUrl).origin]),
+    siteUrl: getFirstValidUrl([
+      readText(channel.link),
+      siteUrlHint,
+      new URL(feedUrl).origin,
+    ]),
     description: readText(channel.description),
     createdAt: now,
     lastFetchedAt: now,
@@ -108,7 +96,11 @@ function parseRssFeed(channel: XmlRecord, feedUrl: string): FeedFetchResult {
   };
 }
 
-function parseAtomFeed(atomFeed: XmlRecord, feedUrl: string): FeedFetchResult {
+function parseAtomFeed(
+  atomFeed: XmlRecord,
+  feedUrl: string,
+  siteUrlHint?: string,
+): FeedFetchResult {
   const feedId = createStableId("feed", feedUrl);
   const now = new Date().toISOString();
   const rawEntries = toArray(atomFeed.entry).filter(isRecord);
@@ -116,7 +108,7 @@ function parseAtomFeed(atomFeed: XmlRecord, feedUrl: string): FeedFetchResult {
     id: feedId,
     title: readText(atomFeed.title) ?? getHostnameLabel(feedUrl),
     url: feedUrl,
-    siteUrl: getAtomLink(atomFeed.link) ?? new URL(feedUrl).origin,
+    siteUrl: getAtomLink(atomFeed.link) ?? siteUrlHint ?? new URL(feedUrl).origin,
     description: readText(atomFeed.subtitle),
     createdAt: now,
     lastFetchedAt: now,
@@ -190,6 +182,119 @@ function parseAtomEntry(entry: XmlRecord, feed: Feed): Article | null {
     ),
     hatenaBookmarkCount: null,
   };
+}
+
+function parseFeedDocument(
+  document: string,
+  feedUrl: string,
+  siteUrlHint?: string,
+): FeedFetchResult | null {
+  if (document.trim().length === 0) {
+    throw new FeedFetchError("フィードの内容が空です。", 422);
+  }
+
+  let parsed: unknown;
+
+  try {
+    parsed = xmlParser.parse(document);
+  } catch {
+    return null;
+  }
+
+  if (!isRecord(parsed)) {
+    return null;
+  }
+
+  if (isRecord(parsed.rss) && isRecord(parsed.rss.channel)) {
+    return parseRssFeed(parsed.rss.channel, feedUrl, siteUrlHint);
+  }
+
+  if (isRecord(parsed.feed)) {
+    return parseAtomFeed(parsed.feed, feedUrl, siteUrlHint);
+  }
+
+  return null;
+}
+
+async function fetchDocument(url: string): Promise<{ body: string }> {
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      headers: {
+        Accept:
+          "text/html,application/xhtml+xml,application/rss+xml,application/atom+xml,application/xml,text/xml;q=0.9,*/*;q=0.8",
+      },
+      cache: "no-store",
+    });
+  } catch {
+    throw new FeedFetchError("URL の取得に失敗しました。", 502);
+  }
+
+  if (!response.ok) {
+    throw new FeedFetchError(
+      `URL の取得に失敗しました。ステータス: ${response.status}`,
+      502,
+    );
+  }
+
+  return {
+    body: await response.text(),
+  };
+}
+
+function discoverFeedUrlFromHtml(html: string, pageUrl: string): string | null {
+  const linkTags = html.match(/<link\b[^>]*>/gi) ?? [];
+
+  for (const linkTag of linkTags) {
+    const attributes = parseHtmlAttributes(linkTag);
+    const rel = attributes.rel?.toLowerCase() ?? "";
+    const type = attributes.type?.toLowerCase() ?? "";
+    const href = attributes.href;
+
+    if (!href) {
+      continue;
+    }
+
+    const isAlternate = rel.split(/\s+/).includes("alternate");
+    const isFeedType = [
+      "application/rss+xml",
+      "application/atom+xml",
+      "application/xml",
+      "text/xml",
+    ].includes(type);
+
+    if (!isAlternate || !isFeedType) {
+      continue;
+    }
+
+    try {
+      const resolvedUrl = new URL(href, pageUrl).toString();
+
+      if (isValidUrl(resolvedUrl)) {
+        return normalizeUrl(resolvedUrl);
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+function parseHtmlAttributes(tag: string): Record<string, string> {
+  const attributes: Record<string, string> = {};
+  const attributePattern =
+    /([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/g;
+
+  for (const match of tag.matchAll(attributePattern)) {
+    const [, rawKey, doubleQuotedValue, singleQuotedValue, unquotedValue] = match;
+    const value = doubleQuotedValue ?? singleQuotedValue ?? unquotedValue ?? "";
+
+    attributes[rawKey.toLowerCase()] = value;
+  }
+
+  return attributes;
 }
 
 function createStableId(prefix: string, value: string): string {
