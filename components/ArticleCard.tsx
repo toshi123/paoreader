@@ -3,8 +3,10 @@ import Link from "next/link";
 import { ExternalArticleLink } from "@/components/ExternalArticleLink";
 import { SaveButton } from "@/components/SaveButton";
 import { formatDateLabel } from "@/lib/article-utils";
-import { getHatenaEntryUrl } from "@/lib/url";
+import { getHatenaEntryUrl, shouldUseFallbackThumbnail } from "@/lib/url";
 import type { Article } from "@/lib/types";
+
+const FALLBACK_THUMBNAIL_URL = "/images/usagi.png";
 
 type ArticleCardProps = {
   article: Article;
@@ -21,6 +23,10 @@ export function ArticleCard({
   onToggleSave,
   onOpenExternalArticle,
 }: ArticleCardProps) {
+  const thumbnailSrc = shouldUseFallbackThumbnail(article.link)
+    ? FALLBACK_THUMBNAIL_URL
+    : article.thumbnailUrl ?? FALLBACK_THUMBNAIL_URL;
+
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="mb-3 flex items-start justify-between gap-3">
@@ -53,6 +59,27 @@ export function ArticleCard({
         </div>
         <SaveButton isSaved={isSaved} onClick={() => onToggleSave(article)} />
       </div>
+      <Link
+        href={article.link}
+        target="_blank"
+        rel="noreferrer"
+        className="mb-4 block overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
+        aria-label="元記事を開く"
+        onClick={() => onOpenExternalArticle(article.id)}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={thumbnailSrc}
+          alt={article.title}
+          className="h-48 w-full object-cover"
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onError={(event) => {
+            event.currentTarget.onerror = null;
+            event.currentTarget.src = FALLBACK_THUMBNAIL_URL;
+          }}
+        />
+      </Link>
       <p className="text-sm leading-6 text-slate-600">{article.summary}</p>
       <div className="mt-4 flex items-center gap-2">
         <Link

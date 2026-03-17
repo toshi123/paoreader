@@ -29,3 +29,13 @@ export function getHatenaEntryUrl(value: string): string {
     normalizeUrl(value),
   )}`;
 }
+
+export function shouldUseFallbackThumbnail(articleUrl: string): boolean {
+  try {
+    const url = new URL(articleUrl);
+
+    return url.protocol === "https:" && url.hostname === "news.yahoo.co.jp";
+  } catch {
+    return false;
+  }
+}

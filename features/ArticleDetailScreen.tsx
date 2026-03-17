@@ -11,7 +11,9 @@ import { useReaderStore } from "@/hooks/useReaderStore";
 import { extractArticleContent } from "@/lib/article-extractor";
 import { formatDateLabel } from "@/lib/article-utils";
 import type { ArticleContent } from "@/lib/types";
-import { getHatenaEntryUrl } from "@/lib/url";
+import { getHatenaEntryUrl, shouldUseFallbackThumbnail } from "@/lib/url";
+
+const FALLBACK_THUMBNAIL_URL = "/images/usagi.png";
 
 type ArticleDetailScreenProps = {
   articleId: string;
@@ -82,6 +84,9 @@ export function ArticleDetailScreen({ articleId }: ArticleDetailScreenProps) {
 
   const isSaved = isArticleSaved(article);
   const articleBody = content?.content.trim() ? content.content : article.summary;
+  const thumbnailSrc = shouldUseFallbackThumbnail(article.link)
+    ? FALLBACK_THUMBNAIL_URL
+    : article.thumbnailUrl ?? FALLBACK_THUMBNAIL_URL;
 
   return (
     <article className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -101,6 +106,26 @@ export function ArticleDetailScreen({ articleId }: ArticleDetailScreenProps) {
         </div>
         <h2 className="text-2xl font-semibold leading-9 text-slate-900">{article.title}</h2>
         <p className="text-sm leading-7 text-slate-600">{article.summary}</p>
+        <Link
+          href={article.link}
+          target="_blank"
+          rel="noreferrer"
+          className="block overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
+          aria-label="元記事を開く"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={thumbnailSrc}
+            alt={article.title}
+            className="max-h-[28rem] w-full object-cover"
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            onError={(event) => {
+              event.currentTarget.onerror = null;
+              event.currentTarget.src = FALLBACK_THUMBNAIL_URL;
+            }}
+          />
+        </Link>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
