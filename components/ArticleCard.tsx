@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ExternalArticleLink } from "@/components/ExternalArticleLink";
 import { SaveButton } from "@/components/SaveButton";
 import { formatDateLabel } from "@/lib/article-utils";
+import { getHatenaEntryUrl } from "@/lib/url";
 import type { Article } from "@/lib/types";
 
 type ArticleCardProps = {
@@ -25,9 +26,15 @@ export function ArticleCard({
           <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500">
             <span>{article.feedTitle}</span>
             <span>{formatDateLabel(article.publishedAt)}</span>
-            <span className="rounded-full bg-sky-50 px-2 py-1 text-sky-700">
+            <Link
+              href={getHatenaEntryUrl(article.link)}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-full bg-sky-50 px-2 py-1 text-sky-700 transition hover:bg-sky-100"
+              aria-label="はてなブックマークのコメントページを開く"
+            >
               B! {article.hatenaBookmarkCount ?? "-"}
-            </span>
+            </Link>
             {isRead ? (
               <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600">
                 既読

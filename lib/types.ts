@@ -41,6 +41,20 @@ export type FeedFetchResult = {
   articles: Article[];
 };
 
+export type FeedCandidate = {
+  url: string;
+  title: string;
+  type: string;
+};
+
+export type FeedSelectionResult = {
+  requiresSelection: true;
+  siteUrl: string;
+  candidates: FeedCandidate[];
+};
+
+export type FeedFetchResponse = FeedFetchResult | FeedSelectionResult;
+
 export type ApiErrorResponse = {
   error: string;
 };

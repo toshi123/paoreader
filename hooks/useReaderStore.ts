@@ -11,7 +11,7 @@ import {
 } from "@/lib/article-utils";
 import { createLocalStorageReaderStorage } from "@/lib/local-storage";
 import { isValidUrl, normalizeUrl } from "@/lib/url";
-import type { Article, Feed } from "@/lib/types";
+import type { Article, Feed, FeedCandidate } from "@/lib/types";
 
 const legacyFeedIds = new Set(["feed-dev", "feed-product", "feed-mobile"]);
 
@@ -89,7 +89,13 @@ export function useReaderStore() {
   );
 
   const addFeed = useCallback(
-    async (url: string): Promise<{ ok: true } | { ok: false; message: string }> => {
+    async (
+      url: string,
+    ): Promise<
+      | { ok: true }
+      | { ok: false; message: string }
+      | { ok: false; requiresSelection: true; candidates: FeedCandidate[]; siteUrl: string }
+    > => {
       if (!isValidUrl(url)) {
         return { ok: false, message: "有効な http / https URL を入力してください。" };
       }
@@ -106,7 +112,18 @@ export function useReaderStore() {
       }
 
       try {
-        const { feed, articles: fetchedArticles } = await fetchFeedFromApi(normalizedUrl);
+        const response = await fetchFeedFromApi(normalizedUrl);
+
+        if ("requiresSelection" in response) {
+          return {
+            ok: false,
+            requiresSelection: true,
+            candidates: response.candidates,
+            siteUrl: response.siteUrl,
+          };
+        }
+
+        const { feed, articles: fetchedArticles } = response;
         const resolvedDuplicate = feeds.some(
           (currentFeed) =>
             normalizeUrl(currentFeed.url) === normalizeUrl(feed.url) ||
@@ -151,7 +168,16 @@ export function useReaderStore() {
       }
 
       try {
-        const { feed, articles: fetchedArticles } = await fetchFeedFromApi(currentFeed.url);
+        const response = await fetchFeedFromApi(currentFeed.url);
+
+        if ("requiresSelection" in response) {
+          return {
+            ok: false,
+            message: "複数のフィード候補が見つかりました。個別に URL を指定してください。",
+          };
+        }
+
+        const { feed, articles: fetchedArticles } = response;
         const nextFeed: Feed = {
           ...currentFeed,
           ...feed,
@@ -159,7 +185,7 @@ export function useReaderStore() {
           createdAt: currentFeed.createdAt,
           lastFetchedAt: feed.lastFetchedAt ?? new Date().toISOString(),
         };
-        const nextFeedArticles = fetchedArticles.map((article) => ({
+        const nextFeedArticles = fetchedArticles.map((article: Article) => ({
           ...article,
           feedId: currentFeed.id,
           feedTitle: nextFeed.title,

@@ -23,3 +23,9 @@ export function normalizeUrl(value: string): string {
 export function getHostnameLabel(value: string): string {
   return new URL(value).hostname.replace(/^www\./, "");
 }
+
+export function getHatenaEntryUrl(value: string): string {
+  return `https://b.hatena.ne.jp/entry?url=${encodeURIComponent(
+    normalizeUrl(value),
+  )}`;
+}

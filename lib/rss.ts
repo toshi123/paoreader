@@ -3,7 +3,13 @@ import { createHash } from "node:crypto";
 import { XMLParser } from "fast-xml-parser";
 
 import { getHostnameLabel, isValidUrl, normalizeUrl } from "@/lib/url";
-import type { Article, Feed, FeedFetchResult } from "@/lib/types";
+import type {
+  Article,
+  Feed,
+  FeedCandidate,
+  FeedFetchResponse,
+  FeedFetchResult,
+} from "@/lib/types";
 
 type XmlRecord = Record<string, unknown>;
 
@@ -24,7 +30,7 @@ export class FeedFetchError extends Error {
   }
 }
 
-export async function fetchFeed(url: string): Promise<FeedFetchResult> {
+export async function fetchFeed(url: string): Promise<FeedFetchResponse> {
   if (!isValidUrl(url)) {
     throw new FeedFetchError("有効な http / https URL を指定してください。", 400);
   }
@@ -37,15 +43,25 @@ export async function fetchFeed(url: string): Promise<FeedFetchResult> {
     return directFeedResult;
   }
 
-  const discoveredFeedUrl = discoverFeedUrlFromHtml(document.body, normalizedUrl);
+  const discoveredCandidates = discoverFeedCandidatesFromHtml(document.body, normalizedUrl);
 
-  if (!discoveredFeedUrl) {
+  if (discoveredCandidates.length === 0) {
     throw new FeedFetchError(
       "ページから RSS / Atom フィードを自動検出できませんでした。",
       422,
     );
   }
 
+  if (discoveredCandidates.length > 1) {
+    return {
+      requiresSelection: true,
+      siteUrl: normalizedUrl,
+      candidates: discoveredCandidates,
+    };
+  }
+
+  const [selectedCandidate] = discoveredCandidates;
+  const discoveredFeedUrl = selectedCandidate.url;
   const feedDocument = await fetchDocument(discoveredFeedUrl);
   const discoveredFeedResult = parseFeedDocument(
     feedDocument.body,
@@ -128,6 +144,43 @@ function parseAtomFeed(
   };
 }
 
+function parseRdfFeed(
+  rdfFeed: XmlRecord,
+  feedUrl: string,
+  siteUrlHint?: string,
+): FeedFetchResult {
+  const feedId = createStableId("feed", feedUrl);
+  const now = new Date().toISOString();
+  const channel = isRecord(rdfFeed.channel) ? rdfFeed.channel : {};
+  const rawItems = toArray(rdfFeed.item).filter(isRecord);
+  const feed: Feed = {
+    id: feedId,
+    title: readText(channel.title) ?? getHostnameLabel(feedUrl),
+    url: feedUrl,
+    siteUrl: getFirstValidUrl([
+      readText(channel.link),
+      siteUrlHint,
+      new URL(feedUrl).origin,
+    ]),
+    description: readText(channel.description),
+    createdAt: now,
+    lastFetchedAt: now,
+    articleCount: rawItems.length,
+  };
+
+  const articles = rawItems
+    .map((item) => parseRdfItem(item, feed))
+    .filter((article): article is Article => article !== null);
+
+  return {
+    feed: {
+      ...feed,
+      articleCount: articles.length,
+    },
+    articles,
+  };
+}
+
 function parseRssItem(item: XmlRecord, feed: Feed): Article | null {
   const link = getFirstValidUrl([
     readText(item.link),
@@ -157,6 +210,37 @@ function parseRssItem(item: XmlRecord, feed: Feed): Article | null {
     ),
     thumbnailUrl: getMediaThumbnail(item),
     hatenaBookmarkCount: null,
+  };
+}
+
+function parseRdfItem(item: XmlRecord, feed: Feed): Article | null {
+  const link = getFirstValidUrl([
+    readText(item.link),
+    readText(item["rdf:about"]),
+  ]);
+
+  if (!link) {
+    return null;
+  }
+
+  const title = readText(item.title) ?? getHostnameLabel(link);
+  const summarySource =
+    readText(item.description) ??
+    readText(item["content:encoded"]) ??
+    readText(item["content"]);
+  const publishedAt = normalizeDate(readText(item["dc:date"]));
+
+  return {
+    id: createStableId("article", `${feed.id}:${link}`),
+    feedId: feed.id,
+    feedTitle: feed.title,
+    title,
+    summary: createSummary(summarySource),
+    link: normalizeUrl(link),
+    publishedAt,
+    thumbnailUrl: readText(item["hatena:imageurl"]),
+    hatenaBookmarkCount: readNumber(item["hatena:bookmarkcount"]),
+    hatenaCountFetchedAt: publishedAt,
   };
 }
 
@@ -205,6 +289,10 @@ function parseFeedDocument(
     return null;
   }
 
+  if (isRecord(parsed["rdf:RDF"])) {
+    return parseRdfFeed(parsed["rdf:RDF"], feedUrl, siteUrlHint);
+  }
+
   if (isRecord(parsed.rss) && isRecord(parsed.rss.channel)) {
     return parseRssFeed(parsed.rss.channel, feedUrl, siteUrlHint);
   }
@@ -243,43 +331,64 @@ async function fetchDocument(url: string): Promise<{ body: string }> {
   };
 }
 
-function discoverFeedUrlFromHtml(html: string, pageUrl: string): string | null {
+function discoverFeedCandidatesFromHtml(html: string, pageUrl: string): FeedCandidate[] {
   const linkTags = html.match(/<link\b[^>]*>/gi) ?? [];
+  const candidates = new Map<string, FeedCandidate>();
 
   for (const linkTag of linkTags) {
-    const attributes = parseHtmlAttributes(linkTag);
-    const rel = attributes.rel?.toLowerCase() ?? "";
-    const type = attributes.type?.toLowerCase() ?? "";
-    const href = attributes.href;
+    const candidate = parseFeedCandidate(linkTag, pageUrl);
 
-    if (!href) {
+    if (!candidate) {
       continue;
     }
 
-    const isAlternate = rel.split(/\s+/).includes("alternate");
-    const isFeedType = [
-      "application/rss+xml",
-      "application/atom+xml",
-      "application/xml",
-      "text/xml",
-    ].includes(type);
-
-    if (!isAlternate || !isFeedType) {
-      continue;
-    }
-
-    try {
-      const resolvedUrl = new URL(href, pageUrl).toString();
-
-      if (isValidUrl(resolvedUrl)) {
-        return normalizeUrl(resolvedUrl);
-      }
-    } catch {
-      continue;
-    }
+    candidates.set(candidate.url, candidate);
   }
 
-  return null;
+  return Array.from(candidates.values());
+}
+
+function parseFeedCandidate(linkTag: string, pageUrl: string): FeedCandidate | null {
+  const attributes = parseHtmlAttributes(linkTag);
+  const rel = attributes.rel?.toLowerCase() ?? "";
+  const type = attributes.type?.toLowerCase() ?? "";
+  const href = attributes.href;
+
+  if (!href) {
+    return null;
+  }
+
+  const isAlternate = rel.split(/\s+/).includes("alternate");
+  const isFeedType = [
+    "application/rss+xml",
+    "application/atom+xml",
+    "application/xml",
+    "text/xml",
+  ].includes(type);
+
+  if (!isAlternate || !isFeedType) {
+    return null;
+  }
+
+  try {
+    const resolvedUrl = new URL(href, pageUrl).toString();
+
+    if (!isValidUrl(resolvedUrl)) {
+      return null;
+    }
+
+    const normalizedCandidateUrl = normalizeUrl(resolvedUrl);
+
+    return {
+      url: normalizedCandidateUrl,
+      title:
+        attributes.title?.trim() ||
+        `${getHostnameLabel(pageUrl)} ${type.includes("atom") ? "Atom" : "RSS"}`,
+      type,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function parseHtmlAttributes(tag: string): Record<string, string> {
@@ -413,6 +522,20 @@ function readText(value: unknown): string | undefined {
   }
 
   return undefined;
+}
+
+function readNumber(value: unknown): number | null {
+  if (typeof value === "number") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsedNumber = Number(value.trim());
+
+    return Number.isNaN(parsedNumber) ? null : parsedNumber;
+  }
+
+  return null;
 }
 
 function toArray<T>(value: T | T[] | undefined): T[] {
