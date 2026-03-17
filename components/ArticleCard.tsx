@@ -11,6 +11,7 @@ type ArticleCardProps = {
   isSaved: boolean;
   isRead: boolean;
   onToggleSave: (article: Article) => void;
+  onOpenExternalArticle: (articleId: string) => void;
 };
 
 export function ArticleCard({
@@ -18,6 +19,7 @@ export function ArticleCard({
   isSaved,
   isRead,
   onToggleSave,
+  onOpenExternalArticle,
 }: ArticleCardProps) {
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -59,7 +61,11 @@ export function ArticleCard({
         >
           詳細を見る
         </Link>
-        <ExternalArticleLink href={article.link} label="元記事" />
+        <ExternalArticleLink
+          href={article.link}
+          label="元記事"
+          onClick={() => onOpenExternalArticle(article.id)}
+        />
       </div>
     </article>
   );

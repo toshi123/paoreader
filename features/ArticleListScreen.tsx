@@ -12,8 +12,14 @@ import { useReaderStore } from "@/hooks/useReaderStore";
 import { filterArticles, sortArticles } from "@/lib/article-utils";
 
 export function ArticleListScreen() {
-  const { articles, readArticleIds, isArticleSaved, toggleSavedArticle, isHydrated } =
-    useReaderStore();
+  const {
+    articles,
+    readArticleIds,
+    isArticleSaved,
+    toggleSavedArticle,
+    markArticleAsRead,
+    isHydrated,
+  } = useReaderStore();
   const { preferences, setSort, setReadFilter, toggleSavedOnly } =
     useArticleListPreferences(isHydrated);
 
@@ -72,6 +78,7 @@ export function ArticleListScreen() {
             isSaved={isArticleSaved(article)}
             isRead={readArticleIds.includes(article.id)}
             onToggleSave={toggleSavedArticle}
+            onOpenExternalArticle={markArticleAsRead}
           />
         ))}
       </div>

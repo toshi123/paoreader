@@ -18,7 +18,17 @@ const xmlParser = new XMLParser({
   attributeNamePrefix: "",
   trimValues: true,
   parseTagValue: true,
+  htmlEntities: true,
+  processEntities: {
+    enabled: true,
+    maxTotalExpansions: 100000,
+  },
 });
+
+const FEED_ACCEPT_HEADER =
+  "application/rss+xml,application/atom+xml,application/xml,text/xml;q=0.9,text/html;q=0.7,*/*;q=0.5";
+const HTML_ACCEPT_HEADER =
+  "text/html,application/xhtml+xml,application/xml;q=0.9,text/xml;q=0.8,*/*;q=0.5";
 
 export class FeedFetchError extends Error {
   status: number;
@@ -36,14 +46,24 @@ export async function fetchFeed(url: string): Promise<FeedFetchResponse> {
   }
 
   const normalizedUrl = normalizeUrl(url);
-  const document = await fetchDocument(normalizedUrl);
-  const directFeedResult = parseFeedDocument(document.body, normalizedUrl, normalizedUrl);
+  const directDocument = await fetchDocument(normalizedUrl, FEED_ACCEPT_HEADER);
+  const directFeedResult = parseFeedDocument(
+    directDocument.body,
+    normalizedUrl,
+    normalizedUrl,
+  );
 
   if (directFeedResult) {
     return directFeedResult;
   }
 
-  const discoveredCandidates = discoverFeedCandidatesFromHtml(document.body, normalizedUrl);
+  const discoveryDocument = directDocument.contentType.includes("text/html")
+    ? directDocument
+    : await fetchDocument(normalizedUrl, HTML_ACCEPT_HEADER);
+  const discoveredCandidates = discoverFeedCandidatesFromHtml(
+    discoveryDocument.body,
+    normalizedUrl,
+  );
 
   if (discoveredCandidates.length === 0) {
     throw new FeedFetchError(
@@ -62,7 +82,7 @@ export async function fetchFeed(url: string): Promise<FeedFetchResponse> {
 
   const [selectedCandidate] = discoveredCandidates;
   const discoveredFeedUrl = selectedCandidate.url;
-  const feedDocument = await fetchDocument(discoveredFeedUrl);
+  const feedDocument = await fetchDocument(discoveredFeedUrl, FEED_ACCEPT_HEADER);
   const discoveredFeedResult = parseFeedDocument(
     feedDocument.body,
     discoveredFeedUrl,
@@ -277,41 +297,63 @@ function parseFeedDocument(
     throw new FeedFetchError("フィードの内容が空です。", 422);
   }
 
-  let parsed: unknown;
+  const documentCandidates = [
+    document,
+    extractEmbeddedFeedXml(document),
+  ].filter((candidate, index, candidates): candidate is string => {
+    return typeof candidate === "string" && candidates.indexOf(candidate) === index;
+  });
 
-  try {
-    parsed = xmlParser.parse(document);
-  } catch {
-    return null;
-  }
+  for (const documentCandidate of documentCandidates) {
+    let parsed: unknown;
 
-  if (!isRecord(parsed)) {
-    return null;
-  }
+    try {
+      parsed = xmlParser.parse(documentCandidate);
+    } catch {
+      continue;
+    }
 
-  if (isRecord(parsed["rdf:RDF"])) {
-    return parseRdfFeed(parsed["rdf:RDF"], feedUrl, siteUrlHint);
-  }
+    if (!isRecord(parsed)) {
+      continue;
+    }
 
-  if (isRecord(parsed.rss) && isRecord(parsed.rss.channel)) {
-    return parseRssFeed(parsed.rss.channel, feedUrl, siteUrlHint);
-  }
+    if (isRecord(parsed["rdf:RDF"])) {
+      return parseRdfFeed(parsed["rdf:RDF"], feedUrl, siteUrlHint);
+    }
 
-  if (isRecord(parsed.feed)) {
-    return parseAtomFeed(parsed.feed, feedUrl, siteUrlHint);
+    if (isRecord(parsed.rss) && isRecord(parsed.rss.channel)) {
+      return parseRssFeed(parsed.rss.channel, feedUrl, siteUrlHint);
+    }
+
+    if (isRecord(parsed.feed)) {
+      return parseAtomFeed(parsed.feed, feedUrl, siteUrlHint);
+    }
   }
 
   return null;
 }
 
-async function fetchDocument(url: string): Promise<{ body: string }> {
+function extractEmbeddedFeedXml(document: string): string | null {
+  const feedRootPattern = /<\?xml[\s\S]*|<rdf:RDF\b[\s\S]*|<rss\b[\s\S]*|<feed\b[\s\S]*/i;
+  const feedRootMatch = document.match(feedRootPattern);
+
+  if (!feedRootMatch) {
+    return null;
+  }
+
+  return feedRootMatch[0].trim();
+}
+
+async function fetchDocument(
+  url: string,
+  accept: string,
+): Promise<{ body: string; contentType: string }> {
   let response: Response;
 
   try {
     response = await fetch(url, {
       headers: {
-        Accept:
-          "text/html,application/xhtml+xml,application/rss+xml,application/atom+xml,application/xml,text/xml;q=0.9,*/*;q=0.8",
+        Accept: accept,
       },
       cache: "no-store",
     });
@@ -328,6 +370,7 @@ async function fetchDocument(url: string): Promise<{ body: string }> {
 
   return {
     body: await response.text(),
+    contentType: response.headers.get("content-type")?.toLowerCase() ?? "",
   };
 }
 

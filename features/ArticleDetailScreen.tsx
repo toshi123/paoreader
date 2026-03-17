@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { EmptyState } from "@/components/EmptyState";
@@ -10,6 +11,7 @@ import { useReaderStore } from "@/hooks/useReaderStore";
 import { extractArticleContent } from "@/lib/article-extractor";
 import { formatDateLabel } from "@/lib/article-utils";
 import type { ArticleContent } from "@/lib/types";
+import { getHatenaEntryUrl } from "@/lib/url";
 
 type ArticleDetailScreenProps = {
   articleId: string;
@@ -79,6 +81,7 @@ export function ArticleDetailScreen({ articleId }: ArticleDetailScreenProps) {
   }
 
   const isSaved = isArticleSaved(article);
+  const articleBody = content?.content.trim() ? content.content : article.summary;
 
   return (
     <article className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -86,6 +89,15 @@ export function ArticleDetailScreen({ articleId }: ArticleDetailScreenProps) {
         <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500">
           <span>{article.feedTitle}</span>
           <span>{formatDateLabel(article.publishedAt)}</span>
+          <Link
+            href={getHatenaEntryUrl(article.link)}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-full bg-sky-50 px-2 py-1 text-sky-700 transition hover:bg-sky-100"
+            aria-label="はてなブックマークのコメントページを開く"
+          >
+            B! {article.hatenaBookmarkCount ?? "-"}
+          </Link>
         </div>
         <h2 className="text-2xl font-semibold leading-9 text-slate-900">{article.title}</h2>
         <p className="text-sm leading-7 text-slate-600">{article.summary}</p>
@@ -102,7 +114,7 @@ export function ArticleDetailScreen({ articleId }: ArticleDetailScreenProps) {
           {content?.author ? <p>{content.author}</p> : null}
         </div>
         <div className="space-y-4 text-[15px] leading-8 text-slate-800">
-          {(content?.content ?? article.summary).split("\n\n").map((paragraph) => (
+          {articleBody.split("\n\n").map((paragraph) => (
             <p key={paragraph}>{paragraph}</p>
           ))}
         </div>

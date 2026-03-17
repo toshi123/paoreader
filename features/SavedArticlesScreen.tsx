@@ -9,8 +9,14 @@ import { useReaderStore } from "@/hooks/useReaderStore";
 import { sortArticles } from "@/lib/article-utils";
 
 export function SavedArticlesScreen() {
-  const { allArticles, isArticleSaved, readArticleIds, toggleSavedArticle, isHydrated } =
-    useReaderStore();
+  const {
+    allArticles,
+    isArticleSaved,
+    readArticleIds,
+    toggleSavedArticle,
+    markArticleAsRead,
+    isHydrated,
+  } = useReaderStore();
   const sortedSavedArticles = useMemo(
     () => sortArticles(allArticles.filter((article) => isArticleSaved(article)), "newest"),
     [allArticles, isArticleSaved],
@@ -40,6 +46,7 @@ export function SavedArticlesScreen() {
           isSaved
           isRead={readArticleIds.includes(article.id)}
           onToggleSave={toggleSavedArticle}
+          onOpenExternalArticle={markArticleAsRead}
         />
       ))}
     </section>
