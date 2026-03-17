@@ -33,7 +33,9 @@ export function ArticleCard({
               <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600">
                 既読
               </span>
-            ) : null}
+            ) : (
+              <span className="rounded-full bg-sky-50 px-2 py-1 text-sky-700">未読</span>
+            )}
           </div>
           <Link href={`/article/${article.id}`} className="block">
             <h2 className="text-base font-semibold leading-6 text-slate-900">

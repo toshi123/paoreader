@@ -33,6 +33,7 @@ export type ArticleContent = {
 };
 
 export type ArticleSort = "newest" | "oldest" | "popular";
+export type ArticleReadFilter = "all" | "unread" | "read";
 
 export type FeedFetchResult = {
   feed: Feed;

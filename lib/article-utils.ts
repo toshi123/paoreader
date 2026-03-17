@@ -1,5 +1,5 @@
 import { normalizeUrl } from "@/lib/url";
-import type { Article, ArticleSort } from "@/lib/types";
+import type { Article, ArticleReadFilter, ArticleSort } from "@/lib/types";
 
 export function sortArticles(articles: Article[], sort: ArticleSort): Article[] {
   return [...articles].sort((left, right) => {
@@ -49,4 +49,25 @@ export function dedupeArticlesByLink(articles: Article[]): Article[] {
   }
 
   return Array.from(articleMap.values());
+}
+
+export function filterArticles(
+  articles: Article[],
+  options: {
+    readFilter: ArticleReadFilter;
+    readArticleIds: string[];
+    savedOnly: boolean;
+    isArticleSaved: (article: Article) => boolean;
+  },
+): Article[] {
+  return articles.filter((article) => {
+    const isRead = options.readArticleIds.includes(article.id);
+    const matchesReadFilter =
+      options.readFilter === "all" ||
+      (options.readFilter === "read" && isRead) ||
+      (options.readFilter === "unread" && !isRead);
+    const matchesSavedFilter = !options.savedOnly || options.isArticleSaved(article);
+
+    return matchesReadFilter && matchesSavedFilter;
+  });
 }

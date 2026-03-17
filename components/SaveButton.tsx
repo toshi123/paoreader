@@ -19,7 +19,7 @@ export function SaveButton({ isSaved, onClick, disabled = false }: SaveButtonPro
           : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
       }`}
     >
-      {isSaved ? "保存中" : "あとで読む"}
+      {isSaved ? "保存済み" : "あとで読む"}
     </button>
   );
 }

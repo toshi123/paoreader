@@ -12,8 +12,25 @@ export function FeedsScreen() {
   const { feeds, addFeed, refreshFeed, removeFeed, isHydrated } = useReaderStore();
   const [refreshingFeedIds, setRefreshingFeedIds] = useState<string[]>([]);
   const [feedErrors, setFeedErrors] = useState<Record<string, string>>({});
+  const [bulkRefreshState, setBulkRefreshState] = useState<{
+    isRunning: boolean;
+    completed: number;
+    total: number;
+    successCount: number;
+    failureCount: number;
+  }>({
+    isRunning: false,
+    completed: 0,
+    total: 0,
+    successCount: 0,
+    failureCount: 0,
+  });
 
   async function handleRefreshFeed(feedId: string) {
+    if (bulkRefreshState.isRunning) {
+      return;
+    }
+
     setRefreshingFeedIds((currentIds) => [...currentIds, feedId]);
     setFeedErrors((currentErrors) => {
       const nextErrors = { ...currentErrors };
@@ -39,6 +56,59 @@ export function FeedsScreen() {
     }
   }
 
+  async function handleRefreshAllFeeds() {
+    if (feeds.length === 0 || bulkRefreshState.isRunning) {
+      return;
+    }
+
+    setFeedErrors({});
+    setBulkRefreshState({
+      isRunning: true,
+      completed: 0,
+      total: feeds.length,
+      successCount: 0,
+      failureCount: 0,
+    });
+
+    let successCount = 0;
+    let failureCount = 0;
+
+    for (const feed of feeds) {
+      setRefreshingFeedIds((currentIds) => [...currentIds, feed.id]);
+
+      const result = await refreshFeed(feed.id);
+
+      if (result.ok) {
+        successCount += 1;
+      } else {
+        failureCount += 1;
+        setFeedErrors((currentErrors) => ({
+          ...currentErrors,
+          [feed.id]: result.message,
+        }));
+      }
+
+      setRefreshingFeedIds((currentIds) =>
+        currentIds.filter((currentId) => currentId !== feed.id),
+      );
+      setBulkRefreshState({
+        isRunning: true,
+        completed: successCount + failureCount,
+        total: feeds.length,
+        successCount,
+        failureCount,
+      });
+    }
+
+    setBulkRefreshState({
+      isRunning: false,
+      completed: feeds.length,
+      total: feeds.length,
+      successCount,
+      failureCount,
+    });
+  }
+
   if (!isHydrated) {
     return <LoadingSpinner />;
   }
@@ -46,6 +116,36 @@ export function FeedsScreen() {
   return (
     <section className="space-y-4">
       <FeedForm onSubmit={addFeed} />
+      {feeds.length > 0 ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div className="space-y-1">
+              <h2 className="text-sm font-semibold text-slate-900">フィードを更新</h2>
+              <p className="text-sm text-slate-500">
+                登録済みのフィードを順番に再取得します。
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={bulkRefreshState.isRunning}
+              onClick={handleRefreshAllFeeds}
+              className="rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {bulkRefreshState.isRunning ? "更新中..." : "すべて更新"}
+            </button>
+          </div>
+          {bulkRefreshState.total > 0 ? (
+            <div className="mt-3 space-y-1 text-sm text-slate-600">
+              <p>
+                進行状況: {bulkRefreshState.completed} / {bulkRefreshState.total}
+              </p>
+              <p>
+                成功 {bulkRefreshState.successCount}件 / 失敗 {bulkRefreshState.failureCount}件
+              </p>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       {feeds.length === 0 ? (
         <EmptyState
           title="購読フィードがありません"
@@ -79,7 +179,9 @@ export function FeedsScreen() {
                 <div className="flex flex-col items-end gap-2">
                   <button
                     type="button"
-                    disabled={refreshingFeedIds.includes(feed.id)}
+                    disabled={
+                      bulkRefreshState.isRunning || refreshingFeedIds.includes(feed.id)
+                    }
                     onClick={() => handleRefreshFeed(feed.id)}
                     className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-sm text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
                   >
