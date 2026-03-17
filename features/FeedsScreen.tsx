@@ -118,21 +118,11 @@ export function FeedsScreen() {
       <FeedForm onSubmit={addFeed} />
       {feeds.length > 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div className="space-y-1">
-              <h2 className="text-sm font-semibold text-slate-900">フィードを更新</h2>
-              <p className="text-sm text-slate-500">
-                登録済みのフィードを順番に再取得します。
-              </p>
-            </div>
-            <button
-              type="button"
-              disabled={bulkRefreshState.isRunning}
-              onClick={handleRefreshAllFeeds}
-              className="rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {bulkRefreshState.isRunning ? "更新中..." : "すべて更新"}
-            </button>
+          <div className="space-y-1">
+            <h2 className="text-sm font-semibold text-slate-900">フィードを更新</h2>
+            <p className="text-sm text-slate-500">
+              登録済みのフィードを順番に再取得します。
+            </p>
           </div>
           {bulkRefreshState.total > 0 ? (
             <div className="mt-3 space-y-1 text-sm text-slate-600">
@@ -144,6 +134,16 @@ export function FeedsScreen() {
               </p>
             </div>
           ) : null}
+          <div className="mt-4">
+            <button
+              type="button"
+              disabled={bulkRefreshState.isRunning}
+              onClick={handleRefreshAllFeeds}
+              className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {bulkRefreshState.isRunning ? "更新中..." : "すべて更新"}
+            </button>
+          </div>
         </div>
       ) : null}
       {feeds.length === 0 ? (
@@ -158,7 +158,7 @@ export function FeedsScreen() {
               key={feed.id}
               className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
             >
-              <div className="flex items-start justify-between gap-3">
+              <div className="space-y-3">
                 <div className="space-y-1">
                   <h2 className="text-base font-semibold text-slate-900">{feed.title}</h2>
                   <p className="break-all text-sm text-slate-500">{feed.url}</p>
@@ -176,21 +176,21 @@ export function FeedsScreen() {
                     </p>
                   </div>
                 </div>
-                <div className="flex flex-col items-end gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     disabled={
                       bulkRefreshState.isRunning || refreshingFeedIds.includes(feed.id)
                     }
                     onClick={() => handleRefreshFeed(feed.id)}
-                    className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-sm text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {refreshingFeedIds.includes(feed.id) ? "更新中..." : "更新"}
                   </button>
                   <button
                     type="button"
                     onClick={() => removeFeed(feed.id)}
-                    className="rounded-full bg-slate-100 px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-200"
+                    className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                   >
                     削除
                   </button>
