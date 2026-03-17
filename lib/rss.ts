@@ -164,6 +164,7 @@ function parseRssItem(item: XmlRecord, feed: Feed): Article | null {
       readText(item.pubDate) ?? readText(item.isoDate) ?? readText(item["dc:date"]),
     ),
     thumbnailUrl: getMediaThumbnail(item),
+    hatenaBookmarkCount: null,
   };
 }
 
@@ -187,6 +188,7 @@ function parseAtomEntry(entry: XmlRecord, feed: Feed): Article | null {
     publishedAt: normalizeDate(
       readText(entry.published) ?? readText(entry.updated) ?? readText(entry.created),
     ),
+    hatenaBookmarkCount: null,
   };
 }
 

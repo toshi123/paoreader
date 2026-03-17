@@ -1,9 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { fetchFeedFromApi } from "@/lib/feed-api";
-import { dedupeArticlesByLink, isSameArticle } from "@/lib/article-utils";
+import { fetchHatenaCountFromApi } from "@/lib/hatena-api";
+import {
+  dedupeArticlesByLink,
+  isSameArticle,
+  shouldRefreshHatenaCount,
+} from "@/lib/article-utils";
 import { createLocalStorageReaderStorage } from "@/lib/local-storage";
 import { isValidUrl, normalizeUrl } from "@/lib/url";
 import type { Article, Feed } from "@/lib/types";
@@ -16,6 +21,7 @@ function mergeArticles(baseArticles: Article[], savedArticles: Article[]): Artic
 
 export function useReaderStore() {
   const storage = useMemo(() => createLocalStorageReaderStorage(), []);
+  const fetchingHatenaArticleIdsRef = useRef<Set<string>>(new Set());
   const [feeds, setFeeds] = useState<Feed[]>([]);
   const [storedArticles, setStoredArticles] = useState<Article[]>([]);
   const [savedArticles, setSavedArticles] = useState<Article[]>([]);
@@ -54,6 +60,26 @@ export function useReaderStore() {
   const allArticles = useMemo(() => {
     return mergeArticles(articles, savedArticles);
   }, [articles, savedArticles]);
+
+  const updateArticleHatenaCount = useCallback(
+    (article: Article, count: number | null): void => {
+      const updatedArticle: Article = {
+        ...article,
+        hatenaBookmarkCount: count,
+        hatenaCountFetchedAt: new Date().toISOString(),
+      };
+      const nextStoredArticles = storage.updateArticle(updatedArticle);
+
+      setStoredArticles(nextStoredArticles);
+
+      if (savedArticles.some((savedArticle) => isSameArticle(savedArticle, article))) {
+        const nextSavedArticles = storage.saveArticle(updatedArticle);
+
+        setSavedArticles(nextSavedArticles);
+      }
+    },
+    [savedArticles, storage],
+  );
 
   const isArticleSaved = useCallback(
     (article: Article): boolean => {
@@ -177,6 +203,36 @@ export function useReaderStore() {
     },
     [storage],
   );
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
+    const targetArticles = allArticles.filter(
+      (article) =>
+        shouldRefreshHatenaCount(article) &&
+        !fetchingHatenaArticleIdsRef.current.has(article.id),
+    );
+
+    if (targetArticles.length === 0) {
+      return;
+    }
+
+    for (const article of targetArticles) {
+      fetchingHatenaArticleIdsRef.current.add(article.id);
+
+      void (async () => {
+        try {
+          const count = await fetchHatenaCountFromApi(article.link);
+
+          updateArticleHatenaCount(article, count);
+        } finally {
+          fetchingHatenaArticleIdsRef.current.delete(article.id);
+        }
+      })();
+    }
+  }, [allArticles, isHydrated, updateArticleHatenaCount]);
 
   return {
     feeds,

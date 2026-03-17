@@ -8,6 +8,7 @@ export interface ReaderStorage {
   removeFeed(feedId: string): Feed[];
   getArticles(): Article[];
   saveArticles(articles: Article[]): void;
+  updateArticle(article: Article): Article[];
   replaceArticlesByFeed(feedId: string, articles: Article[]): Article[];
   removeArticlesByFeedId(feedId: string): Article[];
   getSavedArticles(): Article[];

@@ -1,5 +1,10 @@
 import { readerStorageKeys, type ReaderStorage } from "@/lib/storage";
-import { dedupeArticlesByLink, isSameArticle } from "@/lib/article-utils";
+import {
+  dedupeArticlesByLink,
+  isSameArticle,
+  mergeArticleCollections,
+  mergeArticleData,
+} from "@/lib/article-utils";
 import type { Article, Feed } from "@/lib/types";
 
 function getStorage(): Storage | null {
@@ -78,11 +83,32 @@ export function createLocalStorageReaderStorage(): ReaderStorage {
     saveArticles(articles) {
       writeJson(readerStorageKeys.articles, articles);
     },
+    updateArticle(article) {
+      const currentArticles = this.getArticles();
+      const nextArticles = currentArticles.some((currentArticle) =>
+        isSameArticle(currentArticle, article),
+      )
+        ? currentArticles.map((currentArticle) =>
+            isSameArticle(currentArticle, article)
+              ? mergeArticleData(article, currentArticle)
+              : currentArticle,
+          )
+        : [article, ...currentArticles];
+
+      this.saveArticles(nextArticles);
+
+      return nextArticles;
+    },
     replaceArticlesByFeed(feedId, articles) {
-      const currentArticles = this.getArticles().filter(
+      const currentArticles = this.getArticles();
+      const sameFeedArticles = currentArticles.filter(
+        (article) => article.feedId === feedId,
+      );
+      const otherFeedArticles = currentArticles.filter(
         (article) => article.feedId !== feedId,
       );
-      const nextArticles = dedupeArticlesByLink([...articles, ...currentArticles]);
+      const nextFeedArticles = mergeArticleCollections(articles, sameFeedArticles);
+      const nextArticles = dedupeArticlesByLink([...nextFeedArticles, ...otherFeedArticles]);
 
       this.saveArticles(nextArticles);
 
@@ -102,12 +128,16 @@ export function createLocalStorageReaderStorage(): ReaderStorage {
     },
     saveArticle(article) {
       const currentArticles = this.getSavedArticles();
-      const alreadySaved = currentArticles.some(
-        (savedArticle) => isSameArticle(savedArticle, article),
+      const existingArticle = currentArticles.find((savedArticle) =>
+        isSameArticle(savedArticle, article),
       );
-      const nextArticles = alreadySaved
-        ? currentArticles
-        : [article, ...currentArticles];
+      const nextArticles = existingArticle
+        ? currentArticles.map((savedArticle) =>
+            isSameArticle(savedArticle, article)
+              ? mergeArticleData(article, savedArticle)
+              : savedArticle,
+          )
+        : dedupeArticlesByLink([article, ...currentArticles]);
 
       writeJson(readerStorageKeys.savedArticles, nextArticles);
 

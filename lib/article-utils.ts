@@ -3,14 +3,13 @@ import type { Article, ArticleReadFilter, ArticleSort } from "@/lib/types";
 
 export function sortArticles(articles: Article[], sort: ArticleSort): Article[] {
   return [...articles].sort((left, right) => {
-    if (sort === "popular") {
-      return (right.hatenaBookmarkCount ?? 0) - (left.hatenaBookmarkCount ?? 0);
-    }
+    if (sort === "hatena") {
+      const countDifference =
+        (right.hatenaBookmarkCount ?? 0) - (left.hatenaBookmarkCount ?? 0);
 
-    if (sort === "oldest") {
-      return (
-        new Date(left.publishedAt).getTime() - new Date(right.publishedAt).getTime()
-      );
+      if (countDifference !== 0) {
+        return countDifference;
+      }
     }
 
     return new Date(right.publishedAt).getTime() - new Date(left.publishedAt).getTime();
@@ -51,6 +50,43 @@ export function dedupeArticlesByLink(articles: Article[]): Article[] {
   return Array.from(articleMap.values());
 }
 
+export function mergeArticleCollections(
+  preferredArticles: Article[],
+  fallbackArticles: Article[],
+): Article[] {
+  const articleMap = new Map<string, Article>();
+
+  for (const fallbackArticle of fallbackArticles) {
+    articleMap.set(getArticleIdentity(fallbackArticle), fallbackArticle);
+  }
+
+  for (const preferredArticle of preferredArticles) {
+    const identity = getArticleIdentity(preferredArticle);
+    const fallbackArticle = articleMap.get(identity);
+
+    articleMap.set(
+      identity,
+      mergeArticleData(preferredArticle, fallbackArticle ?? preferredArticle),
+    );
+  }
+
+  return Array.from(articleMap.values());
+}
+
+export function mergeArticleData(
+  preferredArticle: Article,
+  fallbackArticle: Article,
+): Article {
+  return {
+    ...fallbackArticle,
+    ...preferredArticle,
+    hatenaBookmarkCount:
+      preferredArticle.hatenaBookmarkCount ?? fallbackArticle.hatenaBookmarkCount ?? null,
+    hatenaCountFetchedAt:
+      preferredArticle.hatenaCountFetchedAt ?? fallbackArticle.hatenaCountFetchedAt,
+  };
+}
+
 export function filterArticles(
   articles: Article[],
   options: {
@@ -70,4 +106,20 @@ export function filterArticles(
 
     return matchesReadFilter && matchesSavedFilter;
   });
+}
+
+export function shouldRefreshHatenaCount(article: Article): boolean {
+  if (!article.hatenaCountFetchedAt) {
+    return article.hatenaBookmarkCount == null;
+  }
+
+  const fetchedAt = new Date(article.hatenaCountFetchedAt).getTime();
+
+  if (Number.isNaN(fetchedAt)) {
+    return true;
+  }
+
+  const twelveHours = 1000 * 60 * 60 * 12;
+
+  return Date.now() - fetchedAt > twelveHours;
 }

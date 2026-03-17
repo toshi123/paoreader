@@ -24,11 +24,9 @@ export function ArticleCard({
           <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500">
             <span>{article.feedTitle}</span>
             <span>{formatDateLabel(article.publishedAt)}</span>
-            {article.hatenaBookmarkCount !== undefined ? (
-              <span className="rounded-full bg-sky-50 px-2 py-1 text-sky-700">
-                B! {article.hatenaBookmarkCount}
-              </span>
-            ) : null}
+            <span className="rounded-full bg-sky-50 px-2 py-1 text-sky-700">
+              B! {article.hatenaBookmarkCount ?? "-"}
+            </span>
             {isRead ? (
               <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600">
                 既読

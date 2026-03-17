@@ -18,7 +18,8 @@ export type Article = {
   link: string;
   publishedAt: string;
   thumbnailUrl?: string;
-  hatenaBookmarkCount?: number;
+  hatenaBookmarkCount: number | null;
+  hatenaCountFetchedAt?: string;
 };
 
 export type ArticleContent = {
@@ -32,7 +33,7 @@ export type ArticleContent = {
   publishedAt?: string;
 };
 
-export type ArticleSort = "newest" | "oldest" | "popular";
+export type ArticleSort = "newest" | "hatena";
 export type ArticleReadFilter = "all" | "unread" | "read";
 
 export type FeedFetchResult = {

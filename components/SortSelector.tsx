@@ -17,8 +17,7 @@ export function SortSelector({ value, onChange }: SortSelectorProps) {
         className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
       >
         <option value="newest">新着順</option>
-        <option value="popular">人気順</option>
-        <option value="oldest">古い順</option>
+        <option value="hatena">はてブ順</option>
       </select>
     </label>
   );
