@@ -4,9 +4,17 @@ type SaveButtonProps = {
   isSaved: boolean;
   onClick: () => void;
   disabled?: boolean;
+  savedLabel?: string;
+  unsavedLabel?: string;
 };
 
-export function SaveButton({ isSaved, onClick, disabled = false }: SaveButtonProps) {
+export function SaveButton({
+  isSaved,
+  onClick,
+  disabled = false,
+  savedLabel = "保存済み",
+  unsavedLabel = "あとで読む",
+}: SaveButtonProps) {
   return (
     <button
       type="button"
@@ -19,7 +27,7 @@ export function SaveButton({ isSaved, onClick, disabled = false }: SaveButtonPro
           : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
       }`}
     >
-      {isSaved ? "保存済み" : "あとで読む"}
+      {isSaved ? savedLabel : unsavedLabel}
     </button>
   );
 }

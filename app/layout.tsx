@@ -38,7 +38,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
       <body>
         <div className="min-h-screen bg-slate-50 text-slate-900">
           <Header />
-          <main className="mx-auto max-w-3xl px-4 py-5 pb-24">{children}</main>
+          <main className="mx-auto max-w-3xl px-4 py-5 pb-28">{children}</main>
           <BottomNav />
         </div>
       </body>

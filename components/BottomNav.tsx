@@ -13,8 +13,8 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto grid max-w-3xl grid-cols-3 px-2 py-2">
+    <nav className="fixed inset-x-0 bottom-3 z-20 px-3">
+      <div className="mx-auto grid w-full max-w-sm grid-cols-3 rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-lg backdrop-blur">
         {navItems.map((item) => {
           const isActive =
             item.href === "/"

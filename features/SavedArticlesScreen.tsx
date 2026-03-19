@@ -47,6 +47,7 @@ export function SavedArticlesScreen() {
           isRead={readArticleIds.includes(article.id)}
           onToggleSave={toggleSavedArticle}
           onOpenExternalArticle={markArticleAsRead}
+          onMarkAsRead={markArticleAsRead}
         />
       ))}
     </section>
