@@ -9,7 +9,7 @@ import type { Article, ArticleListPreferences, Feed } from "@/lib/types";
 
 const defaultArticleListPreferences: ArticleListPreferences = {
   sort: "newest",
-  readFilter: "all",
+  readFilter: "unread",
   savedOnly: false,
 };
 

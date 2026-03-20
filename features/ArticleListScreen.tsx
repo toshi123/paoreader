@@ -78,7 +78,6 @@ export function ArticleListScreen() {
             isSaved={isArticleSaved(article)}
             isRead={readArticleIds.includes(article.id)}
             onToggleSave={toggleSavedArticle}
-            onOpenExternalArticle={markArticleAsRead}
             onMarkAsRead={markArticleAsRead}
             enableReadControls
           />

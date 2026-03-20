@@ -15,7 +15,6 @@ type ArticleCardProps = {
   isSaved: boolean;
   isRead: boolean;
   onToggleSave: (article: Article) => void;
-  onOpenExternalArticle: (articleId: string) => void;
   onMarkAsRead: (articleId: string) => void;
   enableReadControls?: boolean;
 };
@@ -25,7 +24,6 @@ export function ArticleCard({
   isSaved,
   isRead,
   onToggleSave,
-  onOpenExternalArticle,
   onMarkAsRead,
   enableReadControls = false,
 }: ArticleCardProps) {
@@ -151,7 +149,6 @@ export function ArticleCard({
           rel="noreferrer"
           className="mb-4 block overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
           aria-label="元記事を開く"
-          onClick={() => onOpenExternalArticle(article.id)}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img

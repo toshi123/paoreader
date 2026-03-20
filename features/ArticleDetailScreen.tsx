@@ -20,13 +20,7 @@ type ArticleDetailScreenProps = {
 };
 
 export function ArticleDetailScreen({ articleId }: ArticleDetailScreenProps) {
-  const {
-    allArticles,
-    isArticleSaved,
-    toggleSavedArticle,
-    markArticleAsRead,
-    isHydrated,
-  } = useReaderStore();
+  const { allArticles, isArticleSaved, toggleSavedArticle, isHydrated } = useReaderStore();
   const [content, setContent] = useState<ArticleContent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -44,8 +38,6 @@ export function ArticleDetailScreen({ articleId }: ArticleDetailScreenProps) {
     setIsLoading(true);
 
     const currentArticle = article;
-
-    markArticleAsRead(currentArticle.id);
 
     let isMounted = true;
 
@@ -65,7 +57,7 @@ export function ArticleDetailScreen({ articleId }: ArticleDetailScreenProps) {
     return () => {
       isMounted = false;
     };
-  }, [article, markArticleAsRead]);
+  }, [article]);
 
   if (!isHydrated || isLoading) {
     return <LoadingSpinner />;

@@ -7,7 +7,7 @@ import type { ArticleListPreferences, ArticleReadFilter, ArticleSort } from "@/l
 
 const defaultPreferences: ArticleListPreferences = {
   sort: "newest",
-  readFilter: "all",
+  readFilter: "unread",
   savedOnly: false,
 };
 
