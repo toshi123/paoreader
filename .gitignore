@@ -8,3 +8,11 @@ coverage
 dist
 *.log
 tsconfig.tsbuildinfo
+
+# OpenNext
+.open-next
+
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
